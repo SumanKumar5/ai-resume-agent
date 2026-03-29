@@ -21,7 +21,7 @@ The system is fully automated, fault-tolerant, and modular.
 ## Tech Stack
 
 * **Language:** Python
-* **AI Model:** Google Gemini (gemini-1.5-flash)
+* **AI Model:** Google Gemini (gemini-3-flash-preview)
 * **Libraries:**
 
   * `openpyxl` – Excel parsing
@@ -62,7 +62,7 @@ ai-resume-agent/
 ## How It Works
 
 ```id="4blh42"
-Excel + JSON → Merge → Read Resume → AI Tailoring → Generate Resume → Email भेजना
+Excel + JSON → Merge → Read Resume → AI Tailoring → Generate Resume → Email 
 ```
 
 ### Step-by-step flow:
