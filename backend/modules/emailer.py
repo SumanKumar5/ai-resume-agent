@@ -145,13 +145,16 @@ def build_html_body(job: dict) -> str:
 """
 
 
-def send_resume_email(job: dict, pdf_path: str) -> bool:
+def send_resume_email(job: dict, pdf_path: str, receiver_email: str = None) -> bool:
     try:
+        sender = SENDER_EMAIL
+        receiver = receiver_email or RECEIVER_EMAIL
+
         subject = f"Tailored Resume — {job['title']} at {job['company']}"
 
         message = Mail(
-            from_email=SENDER_EMAIL,
-            to_emails=RECEIVER_EMAIL,
+            from_email=sender,
+            to_emails=receiver,
             subject=subject,
             html_content=build_html_body(job)
         )

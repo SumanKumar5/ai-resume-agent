@@ -124,9 +124,10 @@ def build_docx(data: dict, output_path: str):
     for detail in edu["details"]:
         add_bullet(doc, detail)
 
-    add_section_heading(doc, "Certifications & Activities")
-    for cert in data["certifications"]:
-        add_bullet(doc, cert)
+    if data.get("certifications"):
+        add_section_heading(doc, "Certifications & Activities")
+        for cert in data["certifications"]:
+            add_bullet(doc, cert)
 
     doc.save(output_path)
     logger.info(f"DOCX saved: {output_path}")

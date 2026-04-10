@@ -3,3 +3,9 @@ venv/
 __pycache__/
 *.pyc
 outputs/
+logs/
+*.db
+*.sqlite3
+node_modules/
+dist/
+uploads/backend/staticfiles/ 

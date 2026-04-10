@@ -1,6 +1,7 @@
 import json
 import logging
 import openpyxl
+import pdfplumber
 from docx import Document
 from pathlib import Path
 
@@ -8,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 def load_excel(filepath: str) -> list[dict]:
-    """Read job links Excel file and return list of job link records."""
     try:
         wb = openpyxl.load_workbook(filepath)
         ws = wb.active
@@ -25,7 +25,6 @@ def load_excel(filepath: str) -> list[dict]:
 
 
 def load_json(filepath: str) -> list[dict]:
-    """Read jobs JSON file and return list of job detail records."""
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -38,7 +37,6 @@ def load_json(filepath: str) -> list[dict]:
 
 
 def merge_jobs(excel_records: list[dict], json_jobs: list[dict]) -> list[dict]:
-    """Join Excel and JSON records on # / id field into one combined record per job."""
     json_map = {job["id"]: job for job in json_jobs}
     merged = []
     for record in excel_records:
@@ -53,20 +51,28 @@ def merge_jobs(excel_records: list[dict], json_jobs: list[dict]) -> list[dict]:
 
 
 def load_resume(filepath: str) -> str:
-    """Extract full text content from the candidate resume .docx file."""
     try:
-        doc = Document(filepath)
-        full_text = []
-        for para in doc.paragraphs:
-            if para.text.strip():
-                full_text.append(para.text.strip())
-        # Also extract text from tables
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    if cell.text.strip():
-                        full_text.append(cell.text.strip())
-        resume_text = "\n".join(full_text)
+        ext = Path(filepath).suffix.lower()
+        if ext == ".pdf":
+            full_text = []
+            with pdfplumber.open(filepath) as pdf:
+                for page in pdf.pages:
+                    text = page.extract_text()
+                    if text:
+                        full_text.append(text.strip())
+            resume_text = "\n".join(full_text)
+        else:
+            doc = Document(filepath)
+            full_text = []
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    full_text.append(para.text.strip())
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        if cell.text.strip():
+                            full_text.append(cell.text.strip())
+            resume_text = "\n".join(full_text)
         logger.info("Resume loaded successfully.")
         return resume_text
     except Exception as e:
@@ -79,10 +85,6 @@ def load_all_inputs(
     json_path: str,
     resume_path: str
 ) -> tuple[list[dict], str]:
-    """
-    Master function: loads and merges all inputs.
-    Returns (merged_jobs, resume_text).
-    """
     excel_records = load_excel(excel_path)
     json_jobs = load_json(json_path)
     merged_jobs = merge_jobs(excel_records, json_jobs)

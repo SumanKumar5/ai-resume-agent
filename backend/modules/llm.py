@@ -106,19 +106,16 @@ def tailor_resume(job: dict, resume_text: str) -> dict:
             logger.info(f"LLM tailoring successful for: {job['title']}")
             return tailored
 
-        except ClientError as e:
-            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+        except Exception as e:
+            error_str = str(e)
+            if any(code in error_str for code in ["429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
                 wait = RETRY_BASE_DELAY ** (attempt + 1)
-                logger.warning(f"Rate limit hit for {job['title']}. Retrying in {wait}s (attempt {attempt + 1}/{MAX_RETRIES})")
+                logger.warning(f"Retryable error for {job['title']}. Retrying in {wait}s (attempt {attempt + 1}/{MAX_RETRIES})")
                 time.sleep(wait)
                 attempt += 1
                 last_error = e
             else:
                 logger.error(f"LLM call failed for {job['title']}: {e}")
                 raise
-
-        except Exception as e:
-            logger.error(f"LLM call failed for {job['title']}: {e}")
-            raise
 
     raise RuntimeError(f"LLM failed after {MAX_RETRIES} attempts for {job['title']}: {last_error}")
