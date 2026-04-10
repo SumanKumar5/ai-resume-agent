@@ -1,5 +1,3 @@
-# AI Resume Tailoring Agent
-
 <div align="center">
 
 ![AI Resume Agent Banner](https://img.shields.io/badge/AI%20Resume%20Tailoring%20Agent-v3.0.0-6366f1?style=for-the-badge&logoColor=white)
