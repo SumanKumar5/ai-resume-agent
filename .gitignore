@@ -9,3 +9,5 @@ logs/
 node_modules/
 dist/
 uploads/backend/staticfiles/ 
+backend/staticfiles/
+backend/uploads/
