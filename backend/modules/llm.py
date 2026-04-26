@@ -1,24 +1,25 @@
-import logging
 import json
+import logging
 import time
-from google import genai
-from google.genai.errors import ClientError
-from config import GEMINI_API_KEY, GEMINI_MODEL, MAX_RETRIES, RETRY_BASE_DELAY
+from openai import OpenAI
+from config import NVIDIA_API_KEY, NVIDIA_BASE_URL, NVIDIA_MODEL, MAX_RETRIES, RETRY_BASE_DELAY
 
 logger = logging.getLogger(__name__)
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+client = OpenAI(
+    base_url=NVIDIA_BASE_URL,
+    api_key=NVIDIA_API_KEY
+)
 
 
 def build_prompt(job: dict, resume_text: str) -> str:
     requirements = "\n".join(f"- {r}" for r in job.get("requirements", []))
     nice_to_have = "\n".join(f"- {n}" for n in job.get("nice_to_have", []))
 
-    return f"""
-You are an expert resume writer and career coach.
+    return f"""You are an expert resume writer and career coach.
 
 Your task is to tailor the candidate's resume specifically for the job below.
-Return ONLY a valid JSON object. No markdown, no backticks, no explanation.
+Return ONLY a valid JSON object. No markdown, no backticks, no explanation, no thinking text.
 
 JOB DETAILS:
 Title: {job['title']}
@@ -43,7 +44,7 @@ INSTRUCTIONS:
 6. The tone should match the company culture: use enterprise/scalability language for backend/devops roles, creative/user-focused language for frontend roles, research/analytical language for ML roles.
 7. Every section must feel like it was written specifically for this role — not a generic resume with a changed title.
 
-Return this exact JSON structure:
+Return this exact JSON structure with no additional text before or after:
 {{
   "name": "candidate full name",
   "contact": "contact line as a single string",
@@ -76,11 +77,27 @@ Return this exact JSON structure:
     "university": "university name",
     "period": "date range",
     "gpa": "GPA string",
-    "details": ["detail 1", "detail 2", "detail 3"]
+    "details": ["detail 1", "detail 2"]
   }},
-  "certifications": ["cert 1", "cert 2", "cert 3", "cert 4"]
-}}
-"""
+  "certifications": ["cert 1", "cert 2"]
+}}"""
+
+
+def extract_json(raw: str) -> str:
+    raw = raw.strip()
+    if "```" in raw:
+        parts = raw.split("```")
+        for part in parts:
+            part = part.strip()
+            if part.startswith("json"):
+                part = part[4:].strip()
+            if part.startswith("{"):
+                return part
+    start = raw.find("{")
+    end = raw.rfind("}") + 1
+    if start != -1 and end > start:
+        return raw[start:end]
+    return raw
 
 
 def tailor_resume(job: dict, resume_text: str) -> dict:
@@ -90,27 +107,24 @@ def tailor_resume(job: dict, resume_text: str) -> dict:
     while attempt < MAX_RETRIES:
         try:
             prompt = build_prompt(job, resume_text)
-            response = client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt
+            response = client.chat.completions.create(
+                model=NVIDIA_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.6,
+                max_tokens=4096
             )
-            raw = response.text.strip()
-
-            if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:]
-                raw = raw.strip()
-
-            tailored = json.loads(raw)
+            raw = response.choices[0].message.content
+            clean = extract_json(raw)
+            tailored = json.loads(clean)
             logger.info(f"LLM tailoring successful for: {job['title']}")
             return tailored
 
         except Exception as e:
             error_str = str(e)
-            if any(code in error_str for code in ["429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
+            if any(code in error_str for code in ["429", "503", "rate", "limit", "timeout", "unavailable"]):
                 wait = RETRY_BASE_DELAY ** (attempt + 1)
-                logger.warning(f"Retryable error for {job['title']}. Retrying in {wait}s (attempt {attempt + 1}/{MAX_RETRIES})")
+                logger.warning(
+                    f"Retryable error for {job['title']}. Retrying in {wait}s (attempt {attempt + 1}/{MAX_RETRIES})")
                 time.sleep(wait)
                 attempt += 1
                 last_error = e
@@ -118,4 +132,5 @@ def tailor_resume(job: dict, resume_text: str) -> dict:
                 logger.error(f"LLM call failed for {job['title']}: {e}")
                 raise
 
-    raise RuntimeError(f"LLM failed after {MAX_RETRIES} attempts for {job['title']}: {last_error}")
+    raise RuntimeError(
+        f"LLM failed after {MAX_RETRIES} attempts for {job['title']}: {last_error}")

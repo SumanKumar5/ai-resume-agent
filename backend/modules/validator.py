@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 def validate_env_vars():
     missing = [var for var in REQUIRED_ENV_VARS if not os.getenv(var)]
     if missing:
-        raise EnvironmentError(f"Missing required environment variables: {', '.join(missing)}")
+        raise EnvironmentError(
+            f"Missing required environment variables: {', '.join(missing)}")
     logger.info("Environment variables validated.")
 
 
@@ -32,7 +33,8 @@ def validate_excel_columns():
     headers = [cell.value for cell in ws[1]]
     missing = [col for col in REQUIRED_EXCEL_COLUMNS if col not in headers]
     if missing:
-        raise ValueError(f"Missing required Excel columns: {', '.join(missing)}")
+        raise ValueError(
+            f"Missing required Excel columns: {', '.join(missing)}")
     logger.info("Excel columns validated.")
 
 
